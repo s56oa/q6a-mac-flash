@@ -14,6 +14,10 @@ EDL_BASE="https://github.com/strongtz/edl-ng/releases/download/v$EDL_VERSION"
 
 die() { echo "error: $*" >&2; exit 1; }
 
+# Scratch space for downloads; removed on any exit so failed runs leave nothing in cache/.
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
 # Pinned artifacts: name, URL, SHA-256 (computed from the official downloads).
 fw_info() {
   case "$1" in
@@ -41,14 +45,14 @@ edl_info() {
 fetch_zip() {
   local url="$1" sha="$2" dest="$3" tmp got
   [[ -d "$dest" ]] && { echo "have $dest"; return; }
-  tmp="$(mktemp -d)"
+  tmp="$WORK/$(basename "$dest")"
+  rm -rf "$tmp"; mkdir -p "$tmp/x"
   echo "downloading $url"
   curl -fL# --proto '=https' --tlsv1.2 -o "$tmp/a.zip" "$url"
   got="$(shasum -a 256 "$tmp/a.zip" | cut -d' ' -f1)"
   [[ "$got" == "$sha" ]] || die "checksum mismatch for $url (got $got, expected $sha)"
-  mkdir -p "$dest"
-  unzip -q "$tmp/a.zip" -d "$dest"
-  rm -rf "$tmp"
+  unzip -q "$tmp/a.zip" -d "$tmp/x"
+  mv "$tmp/x" "$dest"   # only appears in the cache once fully verified and extracted
 }
 
 paths() {
@@ -64,7 +68,11 @@ cmd_fetch() {
   fetch_zip "$EDL_BASE/$EDL_ASSET" "$EDL_SHA" "$CACHE/edl-ng-$EDL_VERSION"
   [[ -f "$FW_DIR/prog_firehose_ddr.elf" && -f "$FW_DIR/rawprogram0.xml" && -f "$FW_DIR/patch0.xml" ]] \
     || die "unexpected firmware layout in $FW_DIR"
-  [[ -x "$EDL" ]] || die "edl-ng not found at $EDL"
+  [[ -f "$EDL" ]] || die "edl-ng not found at $EDL"
+  chmod +x "$EDL"
+  file "$EDL" | grep -q "Mach-O" || die "$EDL is not a macOS executable"
+  # curl does not set it, but a browser-downloaded copy would be blocked by Gatekeeper.
+  xattr -d com.apple.quarantine "$EDL" "$(dirname "$EDL")"/*.dylib 2>/dev/null || true
   echo "ok: firmware $v and edl-ng $EDL_VERSION ready in $CACHE"
 }
 
