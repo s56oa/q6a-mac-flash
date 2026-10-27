@@ -88,7 +88,9 @@ cmd_flash() {
   for a in "$@"; do case "$a" in --yes) yes=1;; *) v="$a";; esac; done
   cmd_fetch "$v"; paths "$v"
   edl_present || die "no EDL device found. Enter EDL mode first (see README)."
-  local bk="$BACKUPS/spinor-$(date +%Y%m%d-%H%M%S)"
+  local bk stamp
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  bk="$BACKUPS/spinor-$stamp"
   cat <<PLAN
 Plan (firmware $v):
   1. sudo edl-ng --memory spinor --loader prog_firehose_ddr.elf dump-rawprogram $bk --lun 0
