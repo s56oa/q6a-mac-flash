@@ -1,0 +1,7 @@
+# Downloaded, checksum-verified artifacts (re-created by `./q6a-flash.sh fetch`)
+cache/
+# SPI backups contain device-specific data (SMBIOS, SECDATA, serial numbers) - never publish
+backups/
+# Legacy local working directory
+downloads/
+.DS_Store
